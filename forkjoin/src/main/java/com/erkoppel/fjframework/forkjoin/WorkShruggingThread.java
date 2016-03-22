@@ -27,7 +27,7 @@ public class WorkShruggingThread extends ForkJoinThread {
 			}
 		} catch (InterruptedException e) {
 		} finally {
-			forkJoinPool.getCountDownLatch().countDown();
+			service.getCountDownLatch().countDown();
 		}
 	}
 
@@ -38,7 +38,7 @@ public class WorkShruggingThread extends ForkJoinThread {
 
 	@Override
 	public <T> AbstractForkJoinTask<T> fork(AbstractForkJoinTask<T> task) {
-		WorkShruggingThread t = (WorkShruggingThread) forkJoinPool.getThreads().get(new Random().nextInt(forkJoinPool.getThreads().size()));
+		WorkShruggingThread t = (WorkShruggingThread) service.getThreads().get(new Random().nextInt(service.getThreads().size()));
 		return t.transfer(task);
 	}
 

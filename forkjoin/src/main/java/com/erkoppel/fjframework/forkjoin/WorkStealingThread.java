@@ -11,15 +11,15 @@ public class WorkStealingThread extends ForkJoinThread {
 	private Deque<AbstractForkJoinTask<?>> deq = new ConcurrentLinkedDeque<AbstractForkJoinTask<?>>();
 	private Random rnd = new Random();
 
-	public WorkStealingThread(ForkJoinExecutorService pool) {
-		super(pool);
+	public WorkStealingThread(ForkJoinExecutorService service) {
+		super(service);
 	}
 
 	@Override
 	public void run() {
 		try {
 			while (!interrupted()) {
-				if (forkJoinPool.isShutdown() && deq.isEmpty()) {
+				if (service.isShutdown() && deq.isEmpty()) {
 					break;
 				}
 				
@@ -33,7 +33,7 @@ public class WorkStealingThread extends ForkJoinThread {
 			}
 		} finally {
 			System.out.println("Shutting down.");
-			forkJoinPool.getCountDownLatch().countDown();
+			service.getCountDownLatch().countDown();
 			
 		}
 	}
@@ -64,11 +64,11 @@ public class WorkStealingThread extends ForkJoinThread {
 					yield();
 				}
 
-				if (!forkJoinPool.getThreads().isEmpty()) {
-					WorkStealingThread randomThread = (WorkStealingThread) forkJoinPool.getThreads().get(rnd.nextInt(forkJoinPool.getThreads().size()));
+				if (!service.getThreads().isEmpty()) {
+					WorkStealingThread randomThread = (WorkStealingThread) service.getThreads().get(rnd.nextInt(service.getThreads().size()));
 					task = randomThread.take();
 				}
-			} while (!isInterrupted() && task == null && !forkJoinPool.isShutdown());
+			} while (!isInterrupted() && task == null && !service.isShutdown());
 
 			if (task != null && !task.isDone()) {
 				task.run();

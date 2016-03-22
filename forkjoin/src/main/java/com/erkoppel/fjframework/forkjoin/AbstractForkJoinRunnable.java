@@ -4,7 +4,7 @@ public abstract class AbstractForkJoinRunnable extends AbstractForkJoinTask<Void
 	protected abstract void solve();
 
 	@Override
-	public final void run() {
+	protected final void run() {
 		solve();
 		setDone();
 	}

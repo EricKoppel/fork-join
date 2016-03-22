@@ -13,14 +13,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ForkJoinExecutorService extends AbstractExecutorService {
 
-	private final List<ForkJoinThread> threads = new ArrayList<ForkJoinThread>();
+	private List<ForkJoinThread> threads = new ArrayList<ForkJoinThread>();
 	private Random rnd = new Random();
 	private AtomicBoolean shutdown = new AtomicBoolean(false);
 	private AtomicBoolean terminated = new AtomicBoolean(false);
 	private CountDownLatch stopLatch;
 
-	public ForkJoinExecutorService(final ForkJoinThreadFactory factory) {
-		final int threads = Runtime.getRuntime().availableProcessors();
+	public ForkJoinExecutorService(ForkJoinThreadFactory factory) {
+		int threads = Runtime.getRuntime().availableProcessors();
 		stopLatch = new CountDownLatch(threads);
 		for (int i = 0; i < threads; i++) {
 			ForkJoinThread t = factory.newThread(this);

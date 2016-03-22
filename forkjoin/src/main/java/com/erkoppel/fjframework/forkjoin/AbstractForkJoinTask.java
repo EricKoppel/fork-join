@@ -6,17 +6,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class AbstractForkJoinTask<T> implements ForkJoinableTask<T> {
 	private AtomicBoolean done = new AtomicBoolean(false);
 
-	public boolean isDone() {
-		return done.get();
-	}
-
-	public void setDone() {
-		done.set(true);
-	}
-
 	protected abstract void run();
 	protected abstract void setResult(T result);
 	protected abstract T getResult();
+	
+	protected boolean isDone() {
+		return done.get();
+	}
+
+	protected void setDone() {
+		done.set(true);
+	}
 
 	@Override
 	public void fork() {
@@ -64,7 +64,7 @@ public abstract class AbstractForkJoinTask<T> implements ForkJoinableTask<T> {
 		}
 
 		@Override
-		public void run() {
+		protected void run() {
 			try {
 				runnable.run();
 			} finally {
@@ -74,12 +74,12 @@ public abstract class AbstractForkJoinTask<T> implements ForkJoinableTask<T> {
 		}
 
 		@Override
-		public void setResult(T result) {
+		protected void setResult(T result) {
 			runnable.setResult(result);
 		}
 
 		@Override
-		public T getResult() {
+		protected T getResult() {
 			return runnable.getResult();
 		}
 	}

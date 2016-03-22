@@ -4,10 +4,10 @@ import java.util.List;
 
 
 public abstract class ForkJoinThread extends Thread {
-	protected ForkJoinExecutorService forkJoinPool;
+	protected ForkJoinExecutorService service;
 
-	public ForkJoinThread(ForkJoinExecutorService pool) {
-		this.forkJoinPool = pool;
+	public ForkJoinThread(ForkJoinExecutorService service) {
+		this.service = service;
 	}
 
 	public abstract void join(AbstractForkJoinTask<?> task);
