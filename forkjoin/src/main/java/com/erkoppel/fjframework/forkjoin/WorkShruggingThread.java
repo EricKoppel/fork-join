@@ -18,14 +18,16 @@ public class WorkShruggingThread extends ForkJoinThread {
 	@Override
 	public void run() {
 		try {
-			while (!interrupted()) {
-				AbstractForkJoinTask<?> task = tasks.take();
+			while (!(shutdownNow.get() || (shutdown.get() && tasks.isEmpty()))) {
+				try {
+					AbstractForkJoinTask<?> task = tasks.take();
 
-				if (!task.isDone()) {
-					task.run();
+					if (!task.isDone()) {
+						task.run();
+					}
+				} catch (InterruptedException e) {
 				}
 			}
-		} catch (InterruptedException e) {
 		} finally {
 			service.getCountDownLatch().countDown();
 		}
@@ -62,9 +64,19 @@ public class WorkShruggingThread extends ForkJoinThread {
 	}
 
 	@Override
-	public List<AbstractForkJoinTask<?>> drainTasks() {
-		List<AbstractForkJoinTask<?>> l = new ArrayList<AbstractForkJoinTask<?>>();
-		tasks.drainTo(l);
-		return l;
+	protected void onShutdown() {
+		interrupt();
+	}
+
+	@Override
+	protected void onShutdownNow() {
+		interrupt();
+	}
+
+	@Override
+	protected List<AbstractForkJoinTask<?>> drainTasks() {
+		List<AbstractForkJoinTask<?>> t = new ArrayList<>();
+		tasks.drainTo(t);
+		return t;
 	}
 }

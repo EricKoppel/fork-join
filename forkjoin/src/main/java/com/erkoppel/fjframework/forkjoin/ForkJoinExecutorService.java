@@ -1,7 +1,6 @@
 package com.erkoppel.fjframework.forkjoin;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.AbstractExecutorService;
@@ -10,6 +9,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 public class ForkJoinExecutorService extends AbstractExecutorService {
 
@@ -25,8 +25,8 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 		for (int i = 0; i < threads; i++) {
 			ForkJoinThread t = factory.newThread(this);
 			t.setName("forkjoin-thread-" + i);
-			this.threads.add(t);
 			t.start();
+			this.threads.add(t);
 		}
 	}
 
@@ -55,15 +55,14 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 
 	@Override
 	public void shutdown() {
-		System.out.println("Shutting down");
 		shutdown.set(true);
+		threads.forEach(ForkJoinThread::shutdown);
 	}
 
 	@Override
 	public List<Runnable> shutdownNow() {
 		shutdown.set(true);
-		threads.forEach(Thread::interrupt);
-		return Collections.emptyList();
+		return threads.stream().map(ForkJoinThread::shutdownNow).flatMap(List::stream).collect(Collectors.toList());
 	}
 
 	@Override
@@ -78,7 +77,6 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 
 	@Override
 	public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
-		shutdown.set(true);
 		return stopLatch.await(timeout, unit);
 	}
 
@@ -89,7 +87,7 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 	public CountDownLatch getCountDownLatch() {
 		return stopLatch;
 	}
-
+	
 	private static class ForkJoinRunnableWrapper extends AbstractForkJoinRunnable {
 		private Runnable command;
 

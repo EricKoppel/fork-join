@@ -44,10 +44,10 @@ public abstract class AbstractForkJoinTask<T> implements ForkJoinableTask<T> {
 
 	static final class TerminalForkJoinTask<T> extends AbstractForkJoinTask<T> {
 		private final CountDownLatch done = new CountDownLatch(1);
-		private AbstractForkJoinTask<T> runnable;
+		private AbstractForkJoinTask<T> task;
 
 		public TerminalForkJoinTask(AbstractForkJoinTask<T> runnable) {
-			this.runnable = runnable;
+			this.task = runnable;
 		}
 
 		@Override
@@ -60,13 +60,13 @@ public abstract class AbstractForkJoinTask<T> implements ForkJoinableTask<T> {
 				}
 			}
 
-			return runnable.getResult();
+			return task.getResult();
 		}
 
 		@Override
 		protected void run() {
 			try {
-				runnable.run();
+				task.run();
 			} finally {
 				setDone();
 				done.countDown();
@@ -75,12 +75,12 @@ public abstract class AbstractForkJoinTask<T> implements ForkJoinableTask<T> {
 
 		@Override
 		protected void setResult(T result) {
-			runnable.setResult(result);
+			task.setResult(result);
 		}
 
 		@Override
 		protected T getResult() {
-			return runnable.getResult();
+			return task.getResult();
 		}
 	}
 }

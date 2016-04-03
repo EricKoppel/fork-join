@@ -1,5 +1,6 @@
 package com.erkoppel.fjframework.forkjoin;
 
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Random;
@@ -18,11 +19,7 @@ public class WorkStealingThread extends ForkJoinThread {
 	@Override
 	public void run() {
 		try {
-			while (!interrupted()) {
-				if (service.isShutdown() && deq.isEmpty()) {
-					break;
-				}
-				
+			while (!(shutdownNow.get() || (shutdown.get() && deq.isEmpty()))) {
 				AbstractForkJoinTask<?> task = deq.poll();
 
 				if (task != null && !task.isDone()) {
@@ -32,9 +29,7 @@ public class WorkStealingThread extends ForkJoinThread {
 				}
 			}
 		} finally {
-			System.out.println("Shutting down.");
 			service.getCountDownLatch().countDown();
-			
 		}
 	}
 
@@ -47,6 +42,18 @@ public class WorkStealingThread extends ForkJoinThread {
 	public <T> AbstractForkJoinTask<T> fork(AbstractForkJoinTask<T> task) {
 		deq.push(task);
 		return task;
+	}
+
+	@Override
+	public void join(AbstractForkJoinTask<?> task) {
+		while (!task.isDone()) {
+			AbstractForkJoinTask<?> t = deq.poll();
+			if (t != null && !t.isDone()) {
+				t.run();
+			} else {
+				steal(task);
+			}
+		}
 	}
 
 	private void steal(AbstractForkJoinTask<?> waiting) {
@@ -66,7 +73,7 @@ public class WorkStealingThread extends ForkJoinThread {
 
 				if (!service.getThreads().isEmpty()) {
 					WorkStealingThread randomThread = (WorkStealingThread) service.getThreads().get(rnd.nextInt(service.getThreads().size()));
-					task = randomThread.take();
+					task = randomThread.deq.pollFirst();
 				}
 			} while (!isInterrupted() && task == null && !service.isShutdown());
 
@@ -80,25 +87,20 @@ public class WorkStealingThread extends ForkJoinThread {
 		}
 	}
 
-	private AbstractForkJoinTask<?> take() {
-		return deq.pollFirst();
+	@Override
+	protected void onShutdown() {
 	}
 
 	@Override
-	public void join(AbstractForkJoinTask<?> task) {
-		while (!task.isDone()) {
-			AbstractForkJoinTask<?> t = deq.poll();
-			if (t != null && !t.isDone()) {
-				t.run();
-			} else {
-				steal(task);
-			}
+	protected void onShutdownNow() {
+	}
+
+	@Override
+	protected List<AbstractForkJoinTask<?>> drainTasks() {
+		List<AbstractForkJoinTask<?>> drained = new ArrayList<>();
+		while (!deq.isEmpty()) {
+			drained.add(deq.poll());
 		}
-	}
-
-	@Override
-	public List<AbstractForkJoinTask<?>> drainTasks() {
-		// TODO Auto-generated method stub
-		return null;
+		return drained;
 	}
 }
