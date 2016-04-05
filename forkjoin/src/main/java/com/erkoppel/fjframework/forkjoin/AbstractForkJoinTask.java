@@ -2,14 +2,18 @@ package com.erkoppel.fjframework.forkjoin;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 public abstract class AbstractForkJoinTask<T> implements ForkJoinableTask<T> {
 	private AtomicBoolean done = new AtomicBoolean(false);
 
 	protected abstract void run();
+
 	protected abstract void setResult(T result);
+
 	protected abstract T getResult();
-	
+
 	protected boolean isDone() {
 		return done.get();
 	}
@@ -43,7 +47,9 @@ public abstract class AbstractForkJoinTask<T> implements ForkJoinableTask<T> {
 	}
 
 	static final class TerminalForkJoinTask<T> extends AbstractForkJoinTask<T> {
-		private final CountDownLatch done = new CountDownLatch(1);
+		private final ReentrantLock doneLock = new ReentrantLock();
+		private final Condition done = doneLock.newCondition();
+
 		private AbstractForkJoinTask<T> task;
 
 		public TerminalForkJoinTask(AbstractForkJoinTask<T> runnable) {
@@ -52,12 +58,15 @@ public abstract class AbstractForkJoinTask<T> implements ForkJoinableTask<T> {
 
 		@Override
 		public T join() {
-			while (!isDone()) {
-				try {
+			doneLock.lock();
+			try {
+				while (!isDone()) {
 					done.await();
-				} catch (InterruptedException e) {
-					throw new RuntimeException(e);
 				}
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			} finally {
+				doneLock.unlock();
 			}
 
 			return task.getResult();
@@ -65,11 +74,13 @@ public abstract class AbstractForkJoinTask<T> implements ForkJoinableTask<T> {
 
 		@Override
 		protected void run() {
+			doneLock.lock();
 			try {
 				task.run();
-			} finally {
 				setDone();
-				done.countDown();
+				done.signalAll();
+			} finally {
+				doneLock.unlock();
 			}
 		}
 

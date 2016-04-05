@@ -20,13 +20,13 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 	private CountDownLatch stopLatch;
 
 	public ForkJoinExecutorService(ForkJoinThreadFactory factory) {
-		int threads = Runtime.getRuntime().availableProcessors();
-		stopLatch = new CountDownLatch(threads);
-		for (int i = 0; i < threads; i++) {
+		int numThreads = Runtime.getRuntime().availableProcessors();
+		stopLatch = new CountDownLatch(numThreads);
+		for (int i = 0; i < numThreads; i++) {
 			ForkJoinThread t = factory.newThread(this);
 			t.setName("forkjoin-thread-" + i);
 			t.start();
-			this.threads.add(t);
+			threads.add(t);
 		}
 	}
 
@@ -38,7 +38,7 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 	public void execute(Runnable command) {
 		if (!shutdown.get()) {
 			ForkJoinThread t = threads.get(rnd.nextInt(threads.size()));
-			t.fork(new ForkJoinRunnableWrapper(command));
+			t.fork(new AbstractForkJoinRunnable() {protected void solve() {command.run();}});
 		} else {
 			throw new CancellationException(getClass().getCanonicalName() + " is shutting down!");
 		}
@@ -80,24 +80,11 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 		return stopLatch.await(timeout, unit);
 	}
 
-	public List<ForkJoinThread> getThreads() {
+	protected List<ForkJoinThread> getThreads() {
 		return threads;
 	}
 
-	public CountDownLatch getCountDownLatch() {
+	protected CountDownLatch getStopLatch() {
 		return stopLatch;
-	}
-	
-	private static class ForkJoinRunnableWrapper extends AbstractForkJoinRunnable {
-		private Runnable command;
-
-		public ForkJoinRunnableWrapper(Runnable command) {
-			this.command = command;
-		}
-
-		@Override
-		protected void solve() {
-			command.run();
-		}
 	}
 }

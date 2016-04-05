@@ -29,7 +29,7 @@ public class WorkShruggingThread extends ForkJoinThread {
 				}
 			}
 		} finally {
-			service.getCountDownLatch().countDown();
+			service.getStopLatch().countDown();
 		}
 	}
 

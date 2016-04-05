@@ -29,7 +29,7 @@ public class WorkStealingThread extends ForkJoinThread {
 				}
 			}
 		} finally {
-			service.getCountDownLatch().countDown();
+			service.getStopLatch().countDown();
 		}
 	}
 
