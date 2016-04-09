@@ -2,22 +2,28 @@ package com.erkoppel.fjframework.forkjoin;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
+
+import com.erkoppel.fjframework.forkjoin.interfaces.ForkJoinThreadFactory;
+import com.erkoppel.fjframework.forkjoin.util.RoundRobinThreadPicker;
 
 public class ForkJoinExecutorService extends AbstractExecutorService {
 
 	private List<ForkJoinThread> threads = new ArrayList<ForkJoinThread>();
-	private Random rnd = new Random();
+	private RoundRobinThreadPicker<ForkJoinThread> threadPicker;
 	private AtomicBoolean shutdown = new AtomicBoolean(false);
 	private AtomicBoolean terminated = new AtomicBoolean(false);
 	private CountDownLatch stopLatch;
+	private ReentrantLock moreWorkLock = new ReentrantLock();
+	private Condition moreWork = moreWorkLock.newCondition();
 
 	public ForkJoinExecutorService(ForkJoinThreadFactory factory) {
 		int numThreads = Runtime.getRuntime().availableProcessors();
@@ -25,9 +31,11 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 		for (int i = 0; i < numThreads; i++) {
 			ForkJoinThread t = factory.newThread(this);
 			t.setName("forkjoin-thread-" + i);
-			t.start();
 			threads.add(t);
 		}
+		
+		threads.parallelStream().forEach(Thread::start);
+		threadPicker = new RoundRobinThreadPicker<ForkJoinThread>(threads);
 	}
 
 	public ForkJoinExecutorService() {
@@ -37,8 +45,12 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 	@Override
 	public void execute(Runnable command) {
 		if (!shutdown.get()) {
-			ForkJoinThread t = threads.get(rnd.nextInt(threads.size()));
-			t.fork(new AbstractForkJoinRunnable() {protected void solve() {command.run();}});
+			ForkJoinThread t = threadPicker.nextThread();
+			t.fork(new AbstractForkJoinRunnable() {
+				protected void solve() {
+					command.run();
+				}
+			});
 		} else {
 			throw new CancellationException(getClass().getCanonicalName() + " is shutting down!");
 		}
@@ -46,7 +58,7 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 
 	public <T> T invoke(AbstractForkJoinTask<T> command) throws InterruptedException, ExecutionException {
 		if (!shutdown.get()) {
-			ForkJoinThread t = threads.get(rnd.nextInt(threads.size()));
+			ForkJoinThread t = threadPicker.nextThread();
 			return t.submit(command);
 		} else {
 			throw new CancellationException(getClass().getCanonicalName() + " is shutting down!");
@@ -86,5 +98,23 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 
 	protected CountDownLatch getStopLatch() {
 		return stopLatch;
+	}
+
+	public void awaitMoreWork() throws InterruptedException {
+		moreWorkLock.lock();
+		try {
+			moreWork.await();
+		} finally {
+			moreWorkLock.unlock();
+		}
+	}
+
+	public void signalMoreWork() {
+		moreWorkLock.lock();
+		try {
+			moreWork.signalAll();
+		} finally {
+			moreWorkLock.unlock();
+		}
 	}
 }

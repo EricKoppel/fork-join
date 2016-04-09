@@ -1,9 +1,10 @@
 package com.erkoppel.fjframework.forkjoin;
 
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+
+import com.erkoppel.fjframework.forkjoin.interfaces.ForkJoinableTask;
 
 public abstract class AbstractForkJoinTask<T> implements ForkJoinableTask<T> {
 	private AtomicBoolean done = new AtomicBoolean(false);

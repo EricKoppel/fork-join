@@ -1,5 +1,6 @@
 package com.erkoppel.fjframework.forkjoin;
 
+import com.erkoppel.fjframework.forkjoin.interfaces.ForkJoinThreadFactory;
 
 public class WorkStealingThreadFactory implements ForkJoinThreadFactory {
 	@Override

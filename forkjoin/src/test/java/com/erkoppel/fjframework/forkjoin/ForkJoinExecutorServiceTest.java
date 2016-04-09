@@ -14,7 +14,7 @@ public class ForkJoinExecutorServiceTest {
 	@Test
 	public void testStartWorkStealing() {
 		ForkJoinExecutorService service = new ForkJoinExecutorService();
-		Assert.assertTrue(service.getThreads().stream().allMatch(t -> t.getState() == Thread.State.RUNNABLE && t instanceof WorkStealingThread));
+		Assert.assertTrue(service.getThreads().stream().allMatch(t -> t.getState() == Thread.State.RUNNABLE || t.getState() == Thread.State.WAITING && t instanceof WorkStealingThread));
 		service.shutdown();
 	}
 
@@ -42,7 +42,7 @@ public class ForkJoinExecutorServiceTest {
 		});
 
 		service.shutdown();
-		service.getCountDownLatch().await();
+		service.getStopLatch().await();
 		long numTasksRemaining = service.getThreads().stream().map(ForkJoinThread::drainTasks).flatMap(List::stream).count();
 
 		Assert.assertEquals(0, numTasksRemaining);
@@ -64,7 +64,7 @@ public class ForkJoinExecutorServiceTest {
 		}).limit(10).forEach(c -> {
 			service.execute(c);
 		});
-
+		
 		service.shutdown();
 		service.awaitTermination(10000, TimeUnit.MILLISECONDS);
 		long numTasksRemaining = service.getThreads().stream().map(ForkJoinThread::drainTasks).flatMap(List::stream).count();

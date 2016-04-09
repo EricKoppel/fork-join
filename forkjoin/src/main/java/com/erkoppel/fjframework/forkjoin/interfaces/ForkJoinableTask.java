@@ -1,4 +1,4 @@
-package com.erkoppel.fjframework.forkjoin;
+package com.erkoppel.fjframework.forkjoin.interfaces;
 
 public interface ForkJoinableTask<T> {
 
