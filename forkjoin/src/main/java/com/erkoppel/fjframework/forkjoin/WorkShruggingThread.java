@@ -15,7 +15,7 @@ public class WorkShruggingThread extends ForkJoinThread {
 
 	@Override
 	public void run() {
-		service.getStopLatch().arrive();
+		service.getStopLatch().register();
 		try {
 			while (!(shutdownNow.get() || (shutdown.get() && tasks.isEmpty()))) {
 				try {
