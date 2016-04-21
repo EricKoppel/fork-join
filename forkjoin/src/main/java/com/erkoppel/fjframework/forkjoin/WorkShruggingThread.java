@@ -6,8 +6,6 @@ import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import com.erkoppel.fjframework.forkjoin.AbstractForkJoinTask.TerminalForkJoinTask;
-
 public class WorkShruggingThread extends ForkJoinThread {
 	private BlockingQueue<AbstractForkJoinTask<?>> tasks = new LinkedBlockingQueue<AbstractForkJoinTask<?>>();
 
@@ -17,6 +15,7 @@ public class WorkShruggingThread extends ForkJoinThread {
 
 	@Override
 	public void run() {
+		service.getStopLatch().arrive();
 		try {
 			while (!(shutdownNow.get() || (shutdown.get() && tasks.isEmpty()))) {
 				try {
@@ -29,13 +28,8 @@ public class WorkShruggingThread extends ForkJoinThread {
 				}
 			}
 		} finally {
-			service.getStopLatch().countDown();
+			service.getStopLatch().arriveAndDeregister();
 		}
-	}
-
-	@Override
-	public <T> T submit(AbstractForkJoinTask<T> task) {
-		return fork(new TerminalForkJoinTask<T>(task)).join();
 	}
 
 	@Override

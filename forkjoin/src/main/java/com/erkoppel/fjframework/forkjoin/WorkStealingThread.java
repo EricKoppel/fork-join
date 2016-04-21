@@ -5,7 +5,6 @@ import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
-import com.erkoppel.fjframework.forkjoin.AbstractForkJoinTask.TerminalForkJoinTask;
 import com.erkoppel.fjframework.forkjoin.interfaces.ThreadPicker;
 import com.erkoppel.fjframework.forkjoin.util.RoundRobinThreadPicker;
 
@@ -18,25 +17,25 @@ public class WorkStealingThread extends ForkJoinThread {
 	}
 
 	@Override
-	public void run() {
+	public void run() {		
+		service.getStopLatch().register();
 		try {
 			while (!(shutdownNow.get() || (shutdown.get() && deq.isEmpty()))) {
 				AbstractForkJoinTask<?> task = deq.poll();
 
 				if (task != null && !task.isDone()) {
-					task.run();
+					try {
+						task.run();
+					} finally {
+						statistics.set("tasksRun", i -> i + 1);
+					}
 				} else {
 					steal(null);
 				}
 			}
 		} finally {
-			service.getStopLatch().countDown();
+			service.getStopLatch().arriveAndDeregister();
 		}
-	}
-
-	@Override
-	public <T> T submit(AbstractForkJoinTask<T> task) {
-		return fork(new TerminalForkJoinTask<T>(task)).join();
 	}
 
 	@Override
@@ -52,6 +51,7 @@ public class WorkStealingThread extends ForkJoinThread {
 			AbstractForkJoinTask<?> t = deq.poll();
 			if (t != null && !t.isDone()) {
 				t.run();
+				statistics.set("tasksRun", i -> i + 1);
 			} else {
 				steal(task);
 			}
@@ -70,6 +70,7 @@ public class WorkStealingThread extends ForkJoinThread {
 			if (waiting == null && ++stealAttempts >= service.getThreads().size()) {
 				try {
 					service.awaitMoreWork();
+					statistics.set("idleCount", i -> i + 1);
 					stealAttempts = 0;
 				} catch (InterruptedException e) {
 					return;
@@ -84,6 +85,7 @@ public class WorkStealingThread extends ForkJoinThread {
 
 		if (task != null && !task.isDone()) {
 			task.run();
+			statistics.set("tasksStolen", i -> i + 1);
 		}
 	}
 
