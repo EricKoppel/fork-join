@@ -26,13 +26,6 @@ public class ForkJoinExecutorServiceTest {
 	}
 
 	@Test
-	public void testStartWorkShrugging() {
-		ForkJoinExecutorService service = new ForkJoinExecutorService(new WorkShruggingThreadFactory());
-		Assert.assertTrue(service.getThreads().stream().allMatch(t -> t.getState() == Thread.State.WAITING || t.getState() == Thread.State.NEW && t instanceof WorkShruggingThread));
-		service.shutdown();
-	}
-
-	@Test
 	public void testShutdown() throws InterruptedException {
 		ForkJoinExecutorService service = new ForkJoinExecutorService();
 
