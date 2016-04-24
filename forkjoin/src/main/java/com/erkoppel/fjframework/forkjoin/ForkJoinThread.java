@@ -17,6 +17,16 @@ public abstract class ForkJoinThread extends Thread {
 		statistics.setEnabled(service.isStatisticsEnabled());
 	}
 
+	public abstract <T> AbstractForkJoinTask<T> fork(AbstractForkJoinTask<T> task);
+
+	public abstract void join(AbstractForkJoinTask<?> task);
+
+	protected abstract void onShutdown();
+
+	protected abstract void onShutdownNow();
+
+	protected abstract List<AbstractForkJoinTask<?>> drainTasks();
+	
 	public void shutdown() {
 		shutdown.set(true);
 		onShutdown();
@@ -31,14 +41,4 @@ public abstract class ForkJoinThread extends Thread {
 	public ThreadStatistics<Long> getThreadStatistics() {
 		return statistics;
 	}
-
-	public abstract <T> AbstractForkJoinTask<T> fork(AbstractForkJoinTask<T> task);
-
-	public abstract void join(AbstractForkJoinTask<?> task);
-
-	protected abstract void onShutdown();
-
-	protected abstract void onShutdownNow();
-
-	protected abstract List<AbstractForkJoinTask<?>> drainTasks();
 }
