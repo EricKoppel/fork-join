@@ -11,13 +11,13 @@ import com.erkoppel.fjframework.forkjoin.util.RoundRobinThreadPicker;
 public class WorkStealingThread extends ForkJoinThread {
 	private Deque<AbstractForkJoinTask<?>> deq = new ConcurrentLinkedDeque<AbstractForkJoinTask<?>>();
 	private ThreadPicker<ForkJoinThread> threadPicker = new RoundRobinThreadPicker<ForkJoinThread>(service.getThreads());
-
+	
 	public WorkStealingThread(ForkJoinExecutorService service) {
 		super(service);
 	}
 
 	@Override
-	public void run() {		
+	public void run() {
 		service.getStopLatch().register();
 		try {
 			while (!(shutdownNow.get() || (shutdown.get() && deq.isEmpty()))) {
@@ -61,32 +61,31 @@ public class WorkStealingThread extends ForkJoinThread {
 	private void steal(AbstractForkJoinTask<?> waiting) {
 		AbstractForkJoinTask<?> task = null;
 		int stealAttempts = 0;
+		int maxStealAttempts = service.getThreads().size() << 8;
 
 		do {
-			if (waiting != null && waiting.isDone()) {
+			if (waiting != null && waiting.isDone() || !deq.isEmpty()) {
 				return;
 			}
 
-			if (waiting == null && ++stealAttempts >= service.getThreads().size()) {
+			if (waiting == null && ++stealAttempts >= maxStealAttempts) {
 				try {
-					service.awaitMoreWork();
 					statistics.set("idleCount", i -> i + 1);
+					service.awaitMoreWork();
 					stealAttempts = 0;
 				} catch (InterruptedException e) {
 					return;
 				}
 			}
 
-			if (!service.getThreads().isEmpty()) {
-				WorkStealingThread randomThread = (WorkStealingThread) threadPicker.nextThread();
-				task = randomThread.deq.pollFirst();
-			}
-		} while (!isInterrupted() && task == null && !service.isShutdown());
+			WorkStealingThread randomThread = (WorkStealingThread) threadPicker.nextThread();
+			task = randomThread.deq.pollFirst();
 
-		if (task != null && !task.isDone()) {
-			task.run();
-			statistics.set("tasksStolen", i -> i + 1);
-		}
+			if (task != null && !task.isDone()) {
+				task.run();
+				statistics.set("tasksStolen", i -> i + 1);
+			}
+		} while (!isInterrupted() && !service.isShutdown());
 	}
 
 	@Override
