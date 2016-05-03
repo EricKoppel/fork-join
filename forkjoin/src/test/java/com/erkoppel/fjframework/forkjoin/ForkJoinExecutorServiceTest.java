@@ -1,8 +1,8 @@
 package com.erkoppel.fjframework.forkjoin;
 
 import java.util.List;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Stream;
@@ -136,7 +136,7 @@ public class ForkJoinExecutorServiceTest {
 		Assert.assertTrue(service.isTerminated());
 	}
 	
-	@Test(expected = CancellationException.class)
+	@Test(expected = RejectedExecutionException.class)
 	public void testExecuteAfterShutdown() {
 		ForkJoinExecutorService service = new ForkJoinExecutorService();
 		service.shutdown();
@@ -144,7 +144,7 @@ public class ForkJoinExecutorServiceTest {
 		service.execute(() -> {});
 	}
 	
-	@Test(expected = CancellationException.class)
+	@Test(expected = RejectedExecutionException.class)
 	public void testSubmitAfterShutdown() throws InterruptedException, ExecutionException {
 		ForkJoinExecutorService service = new ForkJoinExecutorService();
 		service.shutdown();
@@ -152,7 +152,7 @@ public class ForkJoinExecutorServiceTest {
 		service.submit(() -> {});
 	}
 	
-	@Test(expected = CancellationException.class)
+	@Test(expected = RejectedExecutionException.class)
 	public void testInvokeAfterShutdown() throws InterruptedException, ExecutionException {
 		ForkJoinExecutorService service = new ForkJoinExecutorService();
 		service.shutdown();

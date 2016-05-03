@@ -1,6 +1,13 @@
 package com.erkoppel.fjframework.forkjoin;
 
 public abstract class AbstractForkJoinRunnable extends AbstractForkJoinTask<Void> {
+	
+	/**
+	 * When a {@link ForkJoinThread} receives an {@link AbstractForkJoinRunnable} to execute,
+	 * the solve method of the implementing class instance is executed.
+	 * 
+	 * @see #run()
+	 */
 	protected abstract void solve();
 
 	@Override

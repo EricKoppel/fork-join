@@ -8,12 +8,21 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import com.erkoppel.fjframework.forkjoin.interfaces.ThreadPicker;
 import com.erkoppel.fjframework.forkjoin.util.RoundRobinThreadPicker;
 
+
+/**
+ * {@link WorkStealingThread} is the core implementation of {@link ForkJoinThread}.
+ * It is based off of Doug Lea's "A Java Fork/Join Framework" with a few tweaks.
+ * 
+ */
 public class WorkStealingThread extends ForkJoinThread {
 	private Deque<AbstractForkJoinTask<?>> deq = new ConcurrentLinkedDeque<AbstractForkJoinTask<?>>();
 	private ThreadPicker<ForkJoinThread> threadPicker = new RoundRobinThreadPicker<ForkJoinThread>(service.getThreads());
-	
+
+	private final int MAX_STEAL_ATTEMPTS;
+
 	public WorkStealingThread(ForkJoinExecutorService service) {
 		super(service);
+		MAX_STEAL_ATTEMPTS = service.getThreads().size() << 8;
 	}
 
 	@Override
@@ -24,11 +33,8 @@ public class WorkStealingThread extends ForkJoinThread {
 				AbstractForkJoinTask<?> task = deq.poll();
 
 				if (task != null && !task.isDone()) {
-					try {
-						task.run();
-					} finally {
-						statistics.set("tasksRun", i -> i + 1);
-					}
+					task.run();
+					statistics.set("tasksRun", i -> i + 1);
 				} else {
 					steal(null);
 				}
@@ -46,7 +52,7 @@ public class WorkStealingThread extends ForkJoinThread {
 	}
 
 	@Override
-	public void join(AbstractForkJoinTask<?> task) {
+	public <T> T join(AbstractForkJoinTask<T> task) {
 		while (!task.isDone()) {
 			AbstractForkJoinTask<?> t = deq.poll();
 			if (t != null && !t.isDone()) {
@@ -56,19 +62,33 @@ public class WorkStealingThread extends ForkJoinThread {
 				steal(task);
 			}
 		}
+
+		return task.getResult();
 	}
 
+	/**
+	 * The steal method is executed when a {@link WorkStealingThread} has no work
+	 * on its deque. Tasks pulled from the back of other {@link ForkJoinThread}s' 
+	 * deques, in round-robin fashion, and executed, yielding for the owner thread. 
+	 * 
+	 * If the {@link WorkStealingThread} is waiting for another task to complete and
+	 * that task finishes, the method will return.
+	 * 
+	 * After a number of attempted steals, the thread will go into a waiting state
+	 * until another thread pushes work onto its deque. 
+	 * 
+	 * @param waiting the task that {@link WorkStealingThread} is waiting for completion
+	 */
 	private void steal(AbstractForkJoinTask<?> waiting) {
 		AbstractForkJoinTask<?> task = null;
 		int stealAttempts = 0;
-		int maxStealAttempts = service.getThreads().size() << 8;
 
 		do {
 			if (waiting != null && waiting.isDone() || !deq.isEmpty()) {
 				return;
 			}
 
-			if (waiting == null && ++stealAttempts >= maxStealAttempts) {
+			if (waiting == null && ++stealAttempts >= MAX_STEAL_ATTEMPTS) {
 				try {
 					statistics.set("idleCount", i -> i + 1);
 					service.awaitMoreWork();
@@ -78,8 +98,10 @@ public class WorkStealingThread extends ForkJoinThread {
 				}
 			}
 
+			yield();
+
 			WorkStealingThread randomThread = (WorkStealingThread) threadPicker.nextThread();
-			task = randomThread.deq.pollFirst();
+			task = randomThread.deq.pollLast();
 
 			if (task != null && !task.isDone()) {
 				task.run();

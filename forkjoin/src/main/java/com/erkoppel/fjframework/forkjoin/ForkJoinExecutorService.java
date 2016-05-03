@@ -3,9 +3,8 @@ package com.erkoppel.fjframework.forkjoin;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.AbstractExecutorService;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -16,12 +15,13 @@ import java.util.stream.Collectors;
 
 import com.erkoppel.fjframework.forkjoin.AbstractForkJoinTask.TerminalForkJoinTask;
 import com.erkoppel.fjframework.forkjoin.interfaces.ForkJoinThreadFactory;
+import com.erkoppel.fjframework.forkjoin.interfaces.ThreadPicker;
 import com.erkoppel.fjframework.forkjoin.util.RoundRobinThreadPicker;
 
 public class ForkJoinExecutorService extends AbstractExecutorService {
 
 	private List<ForkJoinThread> threads = new ArrayList<ForkJoinThread>();
-	private RoundRobinThreadPicker<ForkJoinThread> threadPicker;
+	private ThreadPicker<ForkJoinThread> threadPicker;
 	private AtomicBoolean shutdown = new AtomicBoolean(false);
 	private AtomicInteger threadsStarted = new AtomicInteger();
 	private Phaser stopLatch = new Phaser();
@@ -54,15 +54,23 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 				}
 			});
 		} else {
-			throw new CancellationException(getClass().getCanonicalName() + " is shutting down!");
+			throw new RejectedExecutionException(getClass().getCanonicalName() + " is shutting down!");
 		}
 	}
 
-	public <T> T invoke(AbstractForkJoinTask<T> command) throws InterruptedException, ExecutionException {
+	
+	/**
+	 * Executes the given {@link AbstractForkJoinTask} and returns the result.
+	 * 
+	 * @param command the {@link AbstractForkJoinTask} to be executed
+	 * @return computed result of the {@link AbstractForkJoinTask}
+	 * @throws RejectedExecutionException if the task is submitted after {@link #shutdown()} or {@link #shutdownNow()} has been called.
+	 */
+	public <T> T invoke(AbstractForkJoinTask<T> command) {
 		if (!shutdown.get()) {
 			return threadPicker.nextThread().fork(new TerminalForkJoinTask<T>(command)).join();
 		} else {
-			throw new CancellationException(getClass().getCanonicalName() + " is shutting down!");
+			throw new RejectedExecutionException(getClass().getCanonicalName() + " is shutting down!");
 		}
 	}
 
@@ -98,7 +106,11 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 		return stopLatch.isTerminated();
 	}
 
-	public void awaitTermination() throws InterruptedException {
+	
+	/**
+	 * Blocks indefinitely until all tasks have completed execution after a shutdown request.
+	 */
+	public void awaitTermination() {
 		stopLatch.awaitAdvance(0);
 	}
 
@@ -110,6 +122,14 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 		return stopLatch;
 	}
 
+	
+	/**
+	 * Put thread into waiting state when there is no work to do and nothing to steal.
+	 * When more work is available, the thread can be notified by calling signalMoreWork()
+	 * 
+	 * @throws InterruptedException if the thread is interrupted.
+	 * @see #signalMoreWork()
+	 */
 	public void awaitMoreWork() throws InterruptedException {
 		moreWorkLock.lock();
 		try {
@@ -119,6 +139,13 @@ public class ForkJoinExecutorService extends AbstractExecutorService {
 		}
 	}
 
+	/**
+	 * Signals that a task has been forked onto a work queue.
+	 * Waiting threads are woken up. If there are non-started threads,
+	 * then one is chosen to start.
+	 * 
+	 * @see #awaitMoreWork()
+	 */
 	public void signalMoreWork() {
 		if (threadsStarted.get() < threads.size()) {
 			threads.get(threadsStarted.getAndIncrement()).start();

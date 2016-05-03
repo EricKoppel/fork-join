@@ -6,6 +6,12 @@ import java.util.stream.Collectors;
 
 import com.erkoppel.fjframework.forkjoin.util.ThreadStatistics;
 
+/**
+ * {@link ForkJoinThread} extends {@link Thread} by allowing tasks executing on the thread
+ * to spawn new tasks by way of {@link #fork(AbstractForkJoinTask)} and to wait on spawned 
+ * tasks by way of {@link #join(AbstractForkJoinTask)}. 
+ *
+ */
 public abstract class ForkJoinThread extends Thread {
 	protected ForkJoinExecutorService service;
 	protected AtomicBoolean shutdown = new AtomicBoolean(false);
@@ -17,12 +23,30 @@ public abstract class ForkJoinThread extends Thread {
 		statistics.setEnabled(service.isStatisticsEnabled());
 	}
 
+	/**
+	 * This method should arrange for the task to be asynchronously executed.
+	 * 
+	 * @param task
+	 * @return the task being forked
+	 */
 	public abstract <T> AbstractForkJoinTask<T> fork(AbstractForkJoinTask<T> task);
 
-	public abstract void join(AbstractForkJoinTask<?> task);
-
+	/**
+	 * This method should return the result of the computed task.
+	 * 
+	 * @param task the task whose result is being returned
+	 * @return the computed result of task
+	 */
+	public abstract <T> T join(AbstractForkJoinTask<T> task);
+	
+	/**
+	 * Hook method called by {@link #shutdown()} when {@link ForkJoinExecutorService#shutdown()} is called.
+	 */
 	protected abstract void onShutdown();
 
+	/**
+	 * Hook method called by {@link #shutdownNow()} when {@link ForkJoinExecutorService#shutdownNow()} is called.
+	 */
 	protected abstract void onShutdownNow();
 
 	protected abstract List<AbstractForkJoinTask<?>> drainTasks();
