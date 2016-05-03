@@ -2,7 +2,8 @@ package com.erkoppel.fjframework.forkjoin.util;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+
+import net.jcip.annotations.NotThreadSafe;
 
 import com.erkoppel.fjframework.forkjoin.interfaces.ThreadPicker;
 
@@ -18,9 +19,10 @@ public class RoundRobinThreadPicker<T extends Thread> implements ThreadPicker<T>
 		return iterator.next();
 	}
 
+	@NotThreadSafe
 	static class CyclicalListIterator<T> implements Iterator<T> {
 		private List<T> list;
-		private AtomicInteger index = new AtomicInteger(0);
+		private int index = 0;
 
 		public CyclicalListIterator(List<T> collection) {
 			this.list = collection;
@@ -33,7 +35,9 @@ public class RoundRobinThreadPicker<T extends Thread> implements ThreadPicker<T>
 
 		@Override
 		public T next() {
-			return list.get(index.getAndUpdate(i -> (i + 1) % list.size()));
+			T ret = list.get(index);
+			index = (index + 1) % list.size();
+			return ret;
 		}
 
 		@Override
