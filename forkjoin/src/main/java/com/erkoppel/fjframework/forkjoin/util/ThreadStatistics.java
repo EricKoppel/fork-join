@@ -49,7 +49,7 @@ public class ThreadStatistics<T> {
 
 	public void print() {
 		if (isEnabled()) {
-			System.out.println("ThreadStatistics [map=" + map + "]");
+			System.out.println("ThreadStatistics [" + owner.getName() +  ": map=" + map + "]");
 		}
 	}
 
